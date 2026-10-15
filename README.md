@@ -1,6 +1,6 @@
 # Ironline Strength (demo)
 
-Static single-page trial-booking landing page. No build step. Open `index.html`, or deploy the folder to Vercel or Cloudflare Pages.
+Static multi-page trial-booking site (Home, First class, Schedule, Coaches, Memberships, Visit). Each page is a tiny HTML shell rendered from `config.js` by `script.js`. No build step. Open `index.html`, or deploy the folder to Vercel or Cloudflare Pages.
 
 Clone for a new gym: copy the folder, edit `config.js`, replace files in `images/`. For a new niche also swap the THEME TOKENS block at the top of `styles.css` (and the Google Fonts link in `index.html` if the fonts change).
 

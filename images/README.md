@@ -12,3 +12,8 @@ Drop photos here with these exact names. Any missing file renders a labelled pla
 | gym-wide.jpg | 1600 x 900 | Final CTA background |
 
 Compress to roughly 150 to 300 KB each (hero up to about 400 KB) so the page stays light on mobile.
+| community.jpg | 1600 x 900 | First class page header |
+| classes-wide.jpg | 1600 x 900 | Schedule page header |
+| equipment-wide.jpg | 1600 x 900 | Memberships page header |
+| entrance.jpg | 1600 x 900 | Visit page header |
+| bring-gear.jpg | 800 x 600 | "What to bring" photo |

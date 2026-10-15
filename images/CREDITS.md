@@ -13,3 +13,8 @@ Photos from Unsplash (Unsplash License). Swap for the gym's own photography befo
 - member-2.jpg: Clarissa Carbungco, https://unsplash.com/photos/woman-in-white-tank-top-and-blue-leggings-Lt1-ZqTxUxA
 - member-3.jpg: Salah Regouane, https://unsplash.com/photos/a-man-with-a-beard-PMBOV9qGnwI
 - gym-wide.jpg: Ambitious Studio* | Rick Barrett, https://unsplash.com/photos/a-large-gym-with-a-lot-of-machines-w7jYaN7GqyA
+- classes-wide.jpg: Victor Freitas, https://unsplash.com/photos/nlZTjUZX2qo
+- entrance.jpg: Eric Prouzet, https://unsplash.com/photos/-r-74nZmdGI
+- bring-gear.jpg: LyfeFuel, https://unsplash.com/photos/KgD2NXSTgqM
+- equipment-wide.jpg: Ambitious Studio* | Rick Barrett, https://unsplash.com/photos/e1vAwZzbe5I
+- community.jpg: Mina Rad, https://unsplash.com/photos/CjYhWeAXB4c

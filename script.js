@@ -1,5 +1,6 @@
 /* ==========================================================================
-   Renders the whole page from window.CONFIG (see config.js).
+   Renders every page from window.CONFIG (see config.js).
+   Each HTML file is a tiny shell with <body data-page="...">.
    No dependencies. Works from a plain file:// open.
    ========================================================================== */
 (function () {
@@ -8,8 +9,11 @@
   var C = window.CONFIG;
   if (!C) { console.error("CONFIG is missing. Load config.js before script.js."); return; }
 
+  var PAGE = document.body.getAttribute("data-page") || "home";
+  var HAS_FORM = PAGE === "home" || PAGE === "schedule"; // pages that render the booking card
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  var canHover = window.matchMedia("(hover: hover)").matches;
 
   /* Intrinsic sizes for every image role. Used for width/height + aspect-ratio so nothing shifts. */
   var SIZES = {
@@ -39,6 +43,17 @@
     var a = C.location.address;
     return a.street + ", " + a.city + ", " + a.state + " " + a.zip;
   }
+  function bookHref() { return HAS_FORM ? "#book" : C.bookingPage + "#book"; }
+  function bookLink(cls, extra) {
+    return '<a class="btn btn--primary ' + cls + '" href="' + esc(bookHref()) + '" data-book>' + esc(C.cta.label) + (extra || "") + "</a>";
+  }
+  function moreLink(href, label) {
+    return '<a class="more-link" href="' + esc(href) + '">' + esc(label) + icon("arrow-right") + "</a>";
+  }
+  function navHref(page) {
+    var n = C.nav.filter(function (x) { return x.page === page; })[0];
+    return n ? n.href : "index.html";
+  }
 
   /* An image inside an aspect-ratio box. If the file is missing, wireImages() swaps in a labelled placeholder. */
   function media(img, kind, o) {
@@ -53,7 +68,7 @@
       "</div>"
     );
   }
-  /* A full-bleed background image (hero, final CTA). Its parent supplies the sizing. */
+  /* A full-bleed background image (hero, page hero, final CTA). Its parent supplies the sizing. */
   function bgImage(img, kind, eager) {
     var s = SIZES[kind];
     return (
@@ -91,41 +106,129 @@
     if (C.theme && C.theme.accent) root.style.setProperty("--accent", C.theme.accent);
     var o = (C.theme && C.theme.overrides) || {};
     Object.keys(o).forEach(function (k) { root.style.setProperty(k, o[k]); });
-    if (C.meta) {
-      if (C.meta.title) document.title = C.meta.title;
+    var m = C.meta && C.meta[PAGE];
+    if (m) {
+      if (m.title) document.title = m.title;
       var d = $('meta[name="description"]');
-      if (d && C.meta.description) d.setAttribute("content", C.meta.description);
+      if (d && m.description) d.setAttribute("content", m.description);
     }
   }
 
-  /* ---------- section renderers ---------- */
-  function renderHeader() {
-    var w = C.brand.wordmark;
+  /* ---------- schedule helpers ---------- */
+  function periodOf(time) {
+    var m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(time);
+    if (!m) return C.schedule.periods[0].key;
+    var h = parseInt(m[1], 10) % 12;
+    if (/pm/i.test(m[3])) h += 12;
+    return h < 11 ? "morning" : h < 16 ? "midday" : "evening";
+  }
+  function slotBtn(d, sl) {
     return (
-      '<header class="site-header"><div class="container site-header__inner">' +
-        '<a class="wordmark" href="#top" aria-label="' + esc(C.brand.name) + '">' +
-          '<span class="wordmark__a">' + esc(w[0]) + "</span>" +
-          (w[1] ? '<span class="wordmark__b">' + esc(w[1]) + "</span>" : "") +
-        "</a>" +
-        '<a class="btn btn--primary btn--sm" href="#book" data-book>' + esc(C.cta.label) + "</a>" +
-      "</div></header>"
+      '<button type="button" class="slot-btn" data-day="' + esc(d.day) + '" data-time="' + esc(sl.time) + '"' +
+      ' aria-label="Choose ' + esc(d.day) + " at " + esc(sl.time) + (sl.label ? ", " + esc(sl.label) : "") + '">' +
+        '<span class="slot-btn__time">' + esc(sl.time) + "</span>" +
+        (sl.label ? '<span class="slot-btn__label">' + esc(sl.label) + "</span>" : "") +
+      "</button>"
     );
   }
 
-  function renderTrust() {
-    var h = C.hero, out = "";
-    if (h.rating) {
-      out += '<li class="trust__item">' + icon("star", true) +
-        '<span><span class="trust__strong">' + esc(h.rating.score) + "</span> from " +
-        esc(h.rating.count) + " " + esc(h.rating.source) + "</span></li>";
-    }
-    if (h.members) {
-      out += '<li class="trust__item">' + icon("users") +
-        '<span><span class="trust__strong">' + esc(h.members.count) + "</span> " + esc(h.members.label) + "</span></li>";
-    }
-    return out ? '<ul class="trust">' + out + "</ul>" : "";
+  /* ---------- shared: header, final CTA, footer ---------- */
+  function renderHeader() {
+    var w = C.brand.wordmark;
+    var links = C.nav.map(function (n) {
+      return '<li><a href="' + esc(n.href) + '"' + (n.page === PAGE ? ' aria-current="page"' : "") + ">" + esc(n.label) + "</a></li>";
+    }).join("");
+    return (
+      '<header class="site-header"><div class="container site-header__inner">' +
+        '<a class="wordmark" href="index.html" aria-label="' + esc(C.brand.name) + ', home">' +
+          '<span class="wordmark__a">' + esc(w[0]) + "</span>" +
+          (w[1] ? '<span class="wordmark__b">' + esc(w[1]) + "</span>" : "") +
+        "</a>" +
+        '<nav class="nav" aria-label="Main"><ul>' + links + "</ul></nav>" +
+        '<div class="site-header__actions">' +
+          bookLink("btn--sm") +
+          '<button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="mobile-nav" aria-label="Menu">' +
+            icon("list") + "</button>" +
+        "</div>" +
+      "</div>" +
+      '<nav class="mobile-nav" id="mobile-nav" aria-label="Menu" hidden><div class="container"><ul>' + links + "</ul></div></nav>" +
+      "</header>"
+    );
   }
 
+  function renderFinal() {
+    var f = C.finalCta;
+    return (
+      '<section class="final" id="final" aria-labelledby="final-title">' +
+        '<div class="bg-photo">' + bgImage(f.image, "wide", false) + "</div>" +
+        '<div class="bg-scrim"></div>' +
+        '<div class="container">' +
+          '<h2 class="display" id="final-title">' + esc(f.title) + "</h2>" +
+          "<p>" + esc(f.text) + "</p>" +
+          bookLink("btn--lg", icon("arrow-right")) +
+        "</div>" +
+      "</section>"
+    );
+  }
+
+  function renderFooter() {
+    var F = C.footer, w = C.brand.wordmark;
+    var hours = F.hours.map(function (h) {
+      return "<div><dt>" + esc(h.days) + "</dt><dd>" + esc(h.hours) + "</dd></div>";
+    }).join("");
+    var socials = F.socials.map(function (s) {
+      return '<a href="' + esc(s.url) + '" target="_blank" rel="noopener" aria-label="' + esc(s.label) + '">' + icon(s.icon) + "</a>";
+    }).join("");
+    var links = C.nav.map(function (n) { return '<li><a href="' + esc(n.href) + '">' + esc(n.label) + "</a></li>"; }).join("");
+    return (
+      '<footer class="footer"><div class="container footer__grid">' +
+        '<div class="footer__brand"><a class="wordmark" href="index.html"><span class="wordmark__a">' + esc(w[0]) + "</span>" +
+          (w[1] ? '<span class="wordmark__b">' + esc(w[1]) + "</span>" : "") + "</a>" +
+          "<p>" + esc(addressLine()) + "</p>" +
+          '<div class="socials">' + socials + "</div></div>" +
+        '<div><h2>Explore</h2><ul class="footer__links">' + links + "</ul></div>" +
+        '<div class="footer__contact"><h2>Contact</h2>' +
+          '<a href="tel:' + esc(F.phone.replace(/[^\d+]/g, "")) + '">' + icon("phone") + esc(F.phone) + "</a><br>" +
+          '<a href="mailto:' + esc(F.email) + '">' + icon("envelope-simple") + esc(F.email) + "</a></div>" +
+        '<div><h2>Hours</h2><dl>' + hours + "</dl></div>" +
+      "</div></footer>"
+    );
+  }
+
+  function renderStickyBar() {
+    return '<div class="sticky-cta" id="sticky-cta">' + bookLink("btn--lg btn--block") + "</div>";
+  }
+
+  /* Short photo header used by every page except Home */
+  function renderPageHero(p) {
+    return (
+      '<section class="page-hero" id="top" aria-labelledby="page-title">' +
+        '<div class="bg-photo">' + bgImage(p.image, "wide", true) + "</div>" +
+        '<div class="bg-scrim"></div>' +
+        '<div class="container">' +
+          '<h1 class="display" id="page-title">' + esc(p.title) + "</h1>" +
+          "<p>" + esc(p.intro) + "</p>" +
+        "</div>" +
+      "</section>"
+    );
+  }
+
+  function renderFaqs(title, faqs) {
+    var items = faqs.map(function (f) {
+      return (
+        '<details class="faq"><summary><span>' + esc(f.q) + "</span>" + icon("plus") + "</summary>" +
+        "<p>" + esc(f.a) + "</p></details>"
+      );
+    }).join("");
+    return (
+      '<section class="section" aria-labelledby="faq-title"><div class="container faq-wrap">' +
+        '<div class="section-head"><h2 class="display" id="faq-title">' + esc(title) + "</h2></div>" +
+        '<div class="faqs">' + items + "</div>" +
+      "</div></section>"
+    );
+  }
+
+  /* ---------- booking card ---------- */
   function field(name, type, extra) {
     var L = C.form.labels, P = C.form.placeholders || {};
     return (
@@ -156,10 +259,10 @@
     );
   }
 
-  function renderBooking() {
+  function renderBooking(cls) {
     var f = C.form;
     return (
-      '<div class="booking" id="book" aria-labelledby="book-title">' +
+      '<div class="booking ' + (cls || "") + '" id="book" aria-labelledby="book-title">' +
         '<div data-view="form">' +
           '<div class="booking__head">' +
             '<h2 class="display booking__title" id="book-title">' + esc(f.title) + "</h2>" +
@@ -188,6 +291,21 @@
         '<div data-view="success" hidden></div>' +
       "</div>"
     );
+  }
+
+  /* ---------- HOME sections ---------- */
+  function renderTrust() {
+    var h = C.hero, out = "";
+    if (h.rating) {
+      out += '<li class="trust__item">' + icon("star", true) +
+        '<span><span class="trust__strong">' + esc(h.rating.score) + "</span> from " +
+        esc(h.rating.count) + " " + esc(h.rating.source) + "</span></li>";
+    }
+    if (h.members) {
+      out += '<li class="trust__item">' + icon("users") +
+        '<span><span class="trust__strong">' + esc(h.members.count) + "</span> " + esc(h.members.label) + "</span></li>";
+    }
+    return out ? '<ul class="trust">' + out + "</ul>" : "";
   }
 
   function renderHero() {
@@ -227,52 +345,82 @@
     return '<section class="proof" aria-label="What members say"><div class="container proof__grid">' + items + "</div></section>";
   }
 
-  function renderFirstClass() {
+  /* Interactive first class walkthrough: list of moments on one side, a big photo on the other */
+  function renderStepper(opts) {
+    opts = opts || {};
     var fc = C.firstClass;
-    var steps = fc.steps.map(function (s) {
+    var tabs = fc.steps.map(function (s, i) {
       return (
-        '<li class="step">' + media(s.image, "step") +
-          '<h3 class="step__label">' + esc(s.label) + "</h3>" +
-          '<p class="step__text">' + esc(s.text) + "</p>" +
-        "</li>"
+        '<li><button type="button" class="stepper__item" role="tab" id="st-' + i + '" aria-controls="sp-' + i + '"' +
+        ' aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' +
+          '<span class="stepper__label">' + esc(s.label) + "</span>" +
+          '<span class="stepper__text">' + esc(s.text) + "</span>" +
+        "</button></li>"
+      );
+    }).join("");
+    var panels = fc.steps.map(function (s, i) {
+      return (
+        '<div class="stepper__photo' + (i === 0 ? " is-active" : "") + '" role="tabpanel" id="sp-' + i + '" aria-labelledby="st-' + i + '">' +
+          bgImage(s.image, "step", false) + "</div>"
       );
     }).join("");
     return (
       '<section class="section" id="first-class" data-reveal aria-labelledby="fc-title"><div class="container">' +
         '<div class="section-head"><h2 class="display" id="fc-title">' + esc(fc.title) + "</h2>" +
         (fc.intro ? "<p>" + esc(fc.intro) + "</p>" : "") + "</div>" +
-        '<ol class="steps">' + steps + "</ol>" +
+        '<div class="stepper">' +
+          '<div class="stepper__stage">' + panels + "</div>" +
+          '<ol class="stepper__list" role="tablist" aria-orientation="vertical" aria-label="' + esc(fc.title) + '">' + tabs + "</ol>" +
+        "</div>" +
+        (opts.more ? '<div class="section-more">' + moreLink(navHref("first-class"), fc.moreLabel) + "</div>" : "") +
       "</div></section>"
     );
   }
 
-  function renderSchedule() {
-    var s = C.schedule;
-    var cards = s.days.map(function (d) {
-      var slots = d.slots.map(function (sl) {
-        return (
-          '<button type="button" class="slot-btn" data-day="' + esc(d.day) + '" data-time="' + esc(sl.time) + '"' +
-          ' aria-label="Choose ' + esc(d.day) + " at " + esc(sl.time) + (sl.label ? ", " + esc(sl.label) : "") + '">' +
-            '<span class="slot-btn__time">' + esc(sl.time) + "</span>" +
-            (sl.label ? '<span class="slot-btn__label">' + esc(sl.label) + "</span>" : "") +
-          "</button>"
-        );
+  /* Week board: days across, Morning / Midday / Evening down */
+  function renderBoard() {
+    var S = C.schedule, days = S.days;
+    var head = days.map(function (d) { return '<th scope="col" class="display">' + esc(d.short) + "</th>"; }).join("");
+    var rows = S.periods.map(function (p) {
+      var any = false;
+      var cells = days.map(function (d) {
+        var sl = d.slots.filter(function (s) { return periodOf(s.time) === p.key; });
+        if (!sl.length) return '<td class="is-empty"></td>';
+        any = true;
+        return '<td><div class="board__stack">' + sl.map(function (s) { return slotBtn(d, s); }).join("") + "</div></td>";
       }).join("");
+      return any ? '<tr><th scope="row">' + esc(p.label) + "</th>" + cells + "</tr>" : "";
+    }).join("");
+    return (
+      '<div class="board"><table class="board__table"><caption class="sr">Class times by day</caption>' +
+        "<thead><tr><td></td>" + head + "</tr></thead><tbody>" + rows + "</tbody></table></div>"
+    );
+  }
+
+  /* Day cards: the same slots for phones and tablets */
+  function renderDayCards() {
+    var cards = C.schedule.days.map(function (d) {
       return (
         '<article class="day-card"><h3 class="display day-card__name">' + esc(d.day) + "</h3>" +
-        '<div class="slots">' + slots + "</div></article>"
+        '<div class="slots">' + d.slots.map(function (s) { return slotBtn(d, s); }).join("") + "</div></article>"
       );
     }).join("");
+    return '<div class="day-cards">' + cards + "</div>";
+  }
+
+  function renderScheduleHome() {
+    var s = C.schedule;
     return (
       '<section class="section section--surface" id="schedule" aria-labelledby="schedule-title"><div class="container">' +
         '<div class="section-head"><h2 class="display" id="schedule-title">' + esc(s.title) + "</h2>" +
         (s.intro ? "<p>" + esc(s.intro) + "</p>" : "") + "</div>" +
-        '<div class="days-grid">' + cards + "</div>" +
+        renderBoard() + renderDayCards() +
+        '<div class="section-more">' + moreLink(navHref("schedule"), s.moreLabel) + "</div>" +
       "</div></section>"
     );
   }
 
-  function renderCoaches() {
+  function renderCoachesHome() {
     var co = C.coaches;
     var items = co.list.map(function (c) {
       return (
@@ -287,89 +435,209 @@
       '<section class="section" id="coaches" data-reveal aria-labelledby="coaches-title"><div class="container">' +
         '<div class="section-head"><h2 class="display" id="coaches-title">' + esc(co.title) + "</h2></div>" +
         '<div class="coaches__grid">' + items + "</div>" +
+        '<div class="section-more">' + moreLink(navHref("coaches"), co.moreLabel) + "</div>" +
       "</div></section>"
     );
   }
 
-  function renderLocation() {
+  /* Map + facts, used on Home (as a teaser) and on the Visit page */
+  function renderMap() {
     var L = C.location;
-    var line = addressLine();
     var dLat = 0.0045, dLng = 0.007;
     var osm = "https://www.openstreetmap.org/export/embed.html?bbox=" +
       [L.lng - dLng, L.lat - dLat, L.lng + dLng, L.lat + dLat].join("%2C") +
       "&layer=mapnik&marker=" + L.lat + "%2C" + L.lng;
-    var map = L.mapImage
+    return L.mapImage
       ? media({ src: L.mapImage, alt: L.mapAlt }, "wide", { cls: "map" })
       : '<div class="media map"><iframe src="' + osm + '" title="' + esc("Map to " + C.brand.name) +
         '" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>';
-    var dir = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(line);
-    var facts = L.facts.map(function (f) {
+  }
+  function directionsLink() {
+    var dir = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(addressLine());
+    return '<a class="btn btn--ghost" href="' + dir + '" target="_blank" rel="noopener">' + esc(C.location.directionsLabel) +
+      icon("arrow-up-right") + '<span class="sr"> (opens in a new tab)</span></a>';
+  }
+  function renderFacts() {
+    return '<ul class="facts">' + C.location.facts.map(function (f) {
       return (
         '<li class="fact">' + icon(f.icon) +
           '<div><p class="fact__label">' + esc(f.label) + '</p><p class="fact__text">' + esc(f.text) + "</p></div>" +
         "</li>"
       );
-    }).join("");
+    }).join("") + "</ul>";
+  }
+  function renderAddress() {
+    var a = C.location.address;
+    return '<address class="address">' + esc(a.street) + "<br>" + esc(a.city + ", " + a.state + " " + a.zip) + "</address>";
+  }
+
+  function renderLocationHome() {
+    var L = C.location;
     return (
       '<section class="section section--surface location" id="location" data-reveal aria-labelledby="loc-title"><div class="container location__grid">' +
         "<div>" +
           '<h2 class="display" id="loc-title">' + esc(L.title) + "</h2>" +
-          '<address class="address">' + esc(L.address.street) + "<br>" +
-            esc(L.address.city + ", " + L.address.state + " " + L.address.zip) + "</address>" +
-          '<a class="btn btn--ghost" href="' + dir + '" target="_blank" rel="noopener">' + esc(L.directionsLabel) +
-            icon("arrow-up-right") + '<span class="sr"> (opens in a new tab)</span></a>' +
-          '<ul class="facts">' + facts + "</ul>" +
+          renderAddress() + directionsLink() + renderFacts() +
+          '<div class="section-more section-more--tight">' + moreLink(navHref("visit"), L.moreLabel) + "</div>" +
         "</div>" +
-        map +
+        renderMap() +
       "</div></section>"
     );
   }
 
-  function renderFinal() {
-    var f = C.finalCta;
+  /* ---------- SCHEDULE page ---------- */
+  function renderScheduleRows() {
+    var rows = C.schedule.days.map(function (d) {
+      return (
+        '<section class="day-row" aria-label="' + esc(d.day) + '"><h2 class="display day-row__name">' + esc(d.day) + "</h2>" +
+        '<div class="slots slots--row">' + d.slots.map(function (s) { return slotBtn(d, s); }).join("") + "</div></section>"
+      );
+    }).join("");
+    return '<div class="day-rows">' + rows + "</div>";
+  }
+
+  function renderSchedulePageBody() {
+    var s = C.schedule;
+    var types = s.classTypes.map(function (t) {
+      return '<div class="type"><h3 class="type__label">' + esc(t.label) + '</h3><p class="type__text">' + esc(t.text) + "</p></div>";
+    }).join("");
     return (
-      '<section class="final" id="final" aria-labelledby="final-title">' +
-        '<div class="final__bg">' + bgImage(f.image, "wide", false) + "</div>" +
-        '<div class="final__scrim"></div>' +
-        '<div class="container">' +
-          '<h2 class="display" id="final-title">' + esc(f.title) + "</h2>" +
-          "<p>" + esc(f.text) + "</p>" +
-          '<a class="btn btn--primary btn--lg" href="#book" data-book>' + esc(C.cta.label) + icon("arrow-right") + "</a>" +
+      '<section class="section" aria-label="Class times"><div class="container schedule-layout">' +
+        '<div><div class="section-head"><h2 class="display">' + esc(s.title) + "</h2>" +
+          (s.intro ? "<p>" + esc(s.intro) + "</p>" : "") + "</div>" + renderScheduleRows() +
+          (s.durationNote ? '<p class="duration-note">' + icon("clock") + esc(s.durationNote) + "</p>" : "") +
         "</div>" +
-      "</section>"
+        renderBooking("booking--sticky") +
+      "</div></section>" +
+      '<section class="section section--surface" aria-labelledby="types-title"><div class="container">' +
+        '<div class="section-head"><h2 class="display" id="types-title">' + esc(s.classTypesTitle) + "</h2></div>" +
+        '<div class="types">' + types + "</div>" +
+      "</div></section>"
     );
   }
 
-  function renderFooter() {
-    var F = C.footer, w = C.brand.wordmark;
+  /* ---------- FIRST CLASS page ---------- */
+  function renderBring() {
+    var b = C.firstClass.bring;
+    var items = b.items.map(function (it) {
+      return (
+        '<li class="bring__item">' + icon(it.icon) +
+          '<div><p class="bring__label">' + esc(it.label) + '</p><p class="bring__text">' + esc(it.text) + "</p></div></li>"
+      );
+    }).join("");
+    return (
+      '<section class="section section--surface" data-reveal aria-labelledby="bring-title"><div class="container bring">' +
+        '<div class="bring__copy"><div class="section-head"><h2 class="display" id="bring-title">' + esc(b.title) + "</h2>" +
+          "<p>" + esc(b.intro) + "</p></div><ul class=\"bring__list\">" + items + "</ul></div>" +
+        media(b.image, "step", { cls: "bring__photo" }) +
+      "</div></section>"
+    );
+  }
+
+  /* ---------- COACHES page ---------- */
+  function renderProfiles() {
+    var co = C.coaches;
+    var items = co.list.map(function (c) {
+      var creds = c.credentials.map(function (x) { return "<li>" + icon("check") + esc(x) + "</li>"; }).join("");
+      return (
+        '<article class="profile">' +
+          media(c.image, "coach", { ar: "4 / 5", cls: "profile__photo" }) +
+          '<div class="profile__body">' +
+            '<p class="profile__focus">' + esc(c.focus) + "</p>" +
+            '<h2 class="display profile__name">' + esc(c.name) + "</h2>" +
+            '<p class="profile__bio">' + esc(c.bio) + "</p>" +
+            '<h3 class="profile__sub">' + esc(co.credentialsTitle) + "</h3>" +
+            '<ul class="profile__creds">' + creds + "</ul>" +
+            '<p class="profile__ask">' + esc(c.ask) + "</p>" +
+          "</div>" +
+        "</article>"
+      );
+    }).join("");
+    return '<section class="section" data-reveal aria-label="Coaches"><div class="container profiles">' + items + "</div></section>";
+  }
+
+  /* ---------- MEMBERSHIPS page ---------- */
+  function renderPlans() {
+    var M = C.memberships;
+    var plans = M.plans.map(function (p) {
+      var feats = p.features.map(function (f) { return "<li>" + icon("check") + esc(f) + "</li>"; }).join("");
+      return (
+        '<article class="plan' + (p.featured ? " plan--featured" : "") + '">' +
+          (p.tag ? '<p class="plan__tag">' + esc(p.tag) + "</p>" : "") +
+          '<h3 class="display plan__name">' + esc(p.name) + "</h3>" +
+          '<p class="plan__price"><span class="display">' + esc(p.price) + '</span> <span class="plan__per">' + esc(p.per) + "</span></p>" +
+          '<p class="plan__blurb">' + esc(p.blurb) + "</p>" +
+          '<ul class="plan__features">' + feats + "</ul>" +
+          '<a class="btn ' + (p.featured ? "btn--primary" : "btn--ghost") + ' btn--block" href="' + esc(bookHref()) + '" data-book>' + esc(C.cta.label) + "</a>" +
+        "</article>"
+      );
+    }).join("");
+    var inc = M.included.map(function (i) {
+      return '<li class="included__item">' + icon(i.icon) + "<span>" + esc(i.text) + "</span></li>";
+    }).join("");
+    return (
+      '<section class="section" aria-labelledby="plans-title"><div class="container">' +
+        '<div class="section-head"><h2 class="display" id="plans-title">' + esc(M.plansTitle) + "</h2></div>" +
+        '<div class="plans">' + plans + "</div>" +
+      "</div></section>" +
+      '<section class="section section--surface" data-reveal aria-labelledby="inc-title"><div class="container">' +
+        '<div class="section-head"><h2 class="display" id="inc-title">' + esc(M.includedTitle) + "</h2></div>" +
+        '<ul class="included">' + inc + "</ul>" +
+      "</div></section>"
+    );
+  }
+
+  /* ---------- VISIT page ---------- */
+  function renderVisitBody() {
+    var L = C.location, F = C.footer;
     var hours = F.hours.map(function (h) {
       return "<div><dt>" + esc(h.days) + "</dt><dd>" + esc(h.hours) + "</dd></div>";
     }).join("");
-    var socials = F.socials.map(function (s) {
-      return '<a href="' + esc(s.url) + '" target="_blank" rel="noopener" aria-label="' + esc(s.label) + '">' + icon(s.icon) + "</a>";
-    }).join("");
     return (
-      '<footer class="footer"><div class="container footer__grid">' +
-        '<div class="footer__brand"><span class="wordmark"><span class="wordmark__a">' + esc(w[0]) + "</span>" +
-          (w[1] ? '<span class="wordmark__b">' + esc(w[1]) + "</span>" : "") + "</span>" +
-          "<p>" + esc(addressLine()) + "</p>" +
-          '<div class="socials">' + socials + "</div></div>" +
-        '<div class="footer__contact"><h2>Contact</h2>' +
-          '<a href="tel:' + esc(F.phone.replace(/[^\d+]/g, "")) + '">' + icon("phone") + esc(F.phone) + "</a><br>" +
-          '<a href="mailto:' + esc(F.email) + '">' + icon("envelope-simple") + esc(F.email) + "</a></div>" +
-        '<div><h2>Hours</h2><dl>' + hours + "</dl></div>" +
-      "</div></footer>"
+      '<section class="section" aria-labelledby="loc-title"><div class="container location__grid">' +
+        "<div>" +
+          '<h2 class="display" id="loc-title">' + esc(L.title) + "</h2>" +
+          renderAddress() + directionsLink() + renderFacts() +
+        "</div>" +
+        renderMap() +
+      "</div></section>" +
+      '<section class="section section--surface" data-reveal aria-labelledby="door-title"><div class="container door">' +
+        media(L.entranceImage, "step", { cls: "door__photo" }) +
+        '<div class="door__copy"><h2 class="display" id="door-title">' + esc(L.entranceTitle) + "</h2><p>" + esc(L.entranceText) + "</p></div>" +
+      "</div></section>" +
+      '<section class="section" aria-label="Hours and contact"><div class="container contact">' +
+        '<div><h2 class="display contact__title">' + esc(L.hoursTitle) + '</h2><dl class="hours">' + hours + "</dl></div>" +
+        '<div><h2 class="display contact__title">' + esc(L.contactTitle) + "</h2><p class=\"contact__text\">" + esc(L.contactText) + "</p>" +
+          '<div class="contact__links">' +
+            '<a class="btn btn--ghost" href="tel:' + esc(F.phone.replace(/[^\d+]/g, "")) + '">' + icon("phone") + esc(F.phone) + "</a>" +
+            '<a class="btn btn--ghost" href="mailto:' + esc(F.email) + '">' + icon("envelope-simple") + esc(F.email) + "</a>" +
+          "</div></div>" +
+      "</div></section>"
     );
   }
 
-  function renderStickyBar() {
-    return '<div class="sticky-cta" id="sticky-cta"><a class="btn btn--primary btn--lg btn--block" href="#book" data-book>' +
-      esc(C.cta.label) + "</a></div>";
+  /* ---------- page registry ---------- */
+  function renderBodyFor(page) {
+    switch (page) {
+      case "first-class":
+        return renderPageHero(C.firstClass.page) + renderStepper() + renderBring() + renderFaqs(C.firstClass.faqsTitle, C.firstClass.faqs) + renderFinal();
+      case "schedule":
+        return renderPageHero(C.schedule.page) + renderSchedulePageBody() + renderFinal();
+      case "coaches":
+        return renderPageHero(C.coaches.page) + renderProfiles() + renderFinal();
+      case "memberships":
+        return renderPageHero(C.memberships.page) + renderPlans() + renderFaqs(C.memberships.faqsTitle, C.memberships.faqs) + renderFinal();
+      case "visit":
+        return renderPageHero(C.location.page) + renderVisitBody() + renderFinal();
+      default:
+        return renderHero() + renderProof() + renderStepper({ more: true }) + renderScheduleHome() + renderCoachesHome() + renderLocationHome() + renderFinal();
+    }
   }
 
   /* ---------- booking form ---------- */
   function initBooking() {
     var form = $("#booking-form");
+    if (!form) return null;
     var card = $("#book");
     var btn = $("#submit-btn");
     var spinner = $("#spinner");
@@ -579,6 +847,12 @@
     }
 
     renderTimes();
+
+    /* ?day=Tuesday&time=6:00%20AM pre-selects a slot */
+    var q = new URLSearchParams(window.location.search);
+    var qd = dayObj(q.get("day") || "");
+    if (qd && qd.slots.some(function (s) { return s.time === q.get("time"); })) pickSlot(qd.day, q.get("time"));
+
     return { pickSlot: pickSlot, form: form, card: card };
   }
 
@@ -600,11 +874,52 @@
   }
 
   /* ---------- page behaviours ---------- */
+  function initMenu() {
+    var toggle = $("#nav-toggle"), panel = $("#mobile-nav");
+    if (!toggle || !panel) return;
+    function set(open) {
+      panel.hidden = !open;
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.innerHTML = icon(open ? "x" : "list");
+    }
+    toggle.addEventListener("click", function () { set(panel.hidden); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !panel.hidden) { set(false); toggle.focus(); }
+    });
+    window.matchMedia("(min-width: 70em)").addEventListener("change", function (e) { if (e.matches) set(false); });
+  }
+
+  function initStepper() {
+    var root = $(".stepper");
+    if (!root) return;
+    var tabs = $$('[role="tab"]', root), panels = $$(".stepper__photo", root);
+    function select(i, focus) {
+      tabs.forEach(function (t, k) {
+        t.setAttribute("aria-selected", k === i ? "true" : "false");
+        t.tabIndex = k === i ? 0 : -1;
+        panels[k].classList.toggle("is-active", k === i);
+      });
+      if (focus) tabs[i].focus();
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener("click", function () { select(i); });
+      t.addEventListener("focus", function () { select(i); });
+      if (canHover) t.addEventListener("mouseenter", function () { select(i); });
+      t.addEventListener("keydown", function (e) {
+        var k = e.key, n = tabs.length;
+        if (k === "ArrowDown" || k === "ArrowRight") { e.preventDefault(); select((i + 1) % n, true); }
+        else if (k === "ArrowUp" || k === "ArrowLeft") { e.preventDefault(); select((i - 1 + n) % n, true); }
+        else if (k === "Home") { e.preventDefault(); select(0, true); }
+        else if (k === "End") { e.preventDefault(); select(n - 1, true); }
+      });
+    });
+  }
+
   function initSticky() {
     var bar = $("#sticky-cta");
-    if (!("IntersectionObserver" in window)) return;
-    var inView = { hero: true, final: false };
-    function update() { bar.classList.toggle("is-visible", !inView.hero && !inView.final); }
+    if (!bar || !("IntersectionObserver" in window)) return;
+    var inView = { top: true, final: false, card: false };
+    function update() { bar.classList.toggle("is-visible", !inView.top && !inView.final && !inView.card); }
     function watch(sel, key) {
       var el = $(sel);
       if (!el) return;
@@ -613,8 +928,9 @@
         update();
       }).observe(el);
     }
-    watch("#top", "hero");
+    watch("#top", "top");
     watch("#final", "final");
+    if (PAGE !== "home") watch("#book", "card"); // on Home the card is part of the hero
   }
 
   function initReveal() {
@@ -648,22 +964,21 @@
     var app = $("#app");
     app.innerHTML =
       renderHeader() +
-      '<main id="main">' +
-        renderHero() + renderProof() + renderFirstClass() + renderSchedule() +
-        renderCoaches() + renderLocation() + renderFinal() +
-      "</main>" +
+      '<main id="main">' + renderBodyFor(PAGE) + "</main>" +
       renderFooter() + renderStickyBar() +
       '<div class="sr" id="live-region" role="status" aria-live="polite"></div>';
 
     wireImages(app);
     initHeroVideo();
+    initMenu();
+    initStepper();
     var booking = initBooking();
 
     document.addEventListener("click", function (e) {
       var cta = e.target.closest("[data-book]");
-      if (cta) { e.preventDefault(); goToForm(booking); return; }
+      if (cta && booking) { e.preventDefault(); goToForm(booking); return; }
       var slot = e.target.closest(".slot-btn");
-      if (slot) {
+      if (slot && booking) {
         e.preventDefault();
         var formView = $('[data-view="form"]', booking.card);
         if (!formView.hidden) booking.pickSlot(slot.dataset.day, slot.dataset.time);
@@ -673,6 +988,11 @@
 
     initSticky();
     initReveal();
+
+    /* Arriving with #book (from another page's CTA): content is rendered by script, so scroll once it exists */
+    if (booking && window.location.hash === "#book") {
+      requestAnimationFrame(function () { goToForm(booking, { focus: false }); });
+    }
   }
 
   boot();
