@@ -79,6 +79,8 @@ window.CONFIG = {
     submittingLabel: "Booking your class",
     retryLabel: "Try again",
     microcopy: "No card needed. Cancel anytime.",
+    stickyTitle: "First class is free",    // two small lines next to the button in the mobile bottom bar
+    stickySub: "No card needed",
   },
 
   form: {

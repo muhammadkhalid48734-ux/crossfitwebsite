@@ -141,6 +141,10 @@
     var links = C.nav.map(function (n) {
       return '<li><a href="' + esc(n.href) + '"' + (n.page === PAGE ? ' aria-current="page"' : "") + ">" + esc(n.label) + "</a></li>";
     }).join("");
+    var mlinks = C.nav.map(function (n) {
+      return '<li><a href="' + esc(n.href) + '"' + (n.page === PAGE ? ' aria-current="page"' : "") + "><span>" + esc(n.label) + "</span>" + icon("arrow-right") + "</a></li>";
+    }).join("");
+    var F = C.footer;
     return (
       '<header class="site-header"><div class="container site-header__inner">' +
         '<a class="wordmark" href="index.html" aria-label="' + esc(C.brand.name) + ', home">' +
@@ -154,7 +158,9 @@
             icon("list") + "</button>" +
         "</div>" +
       "</div>" +
-      '<nav class="mobile-nav" id="mobile-nav" aria-label="Menu" hidden><div class="container"><ul>' + links + "</ul></div></nav>" +
+      '<nav class="mobile-nav" id="mobile-nav" aria-label="Menu" hidden><div class="container"><ul>' + mlinks + "</ul>" +
+        '<div class="mobile-nav__foot"><a class="btn btn--ghost btn--block" href="tel:' + esc(F.phone.replace(/[^\d+]/g, "")) + '">' + icon("phone") + esc(F.phone) + "</a>" +
+        "<p>" + esc(F.hours[0].days + ": " + F.hours[0].hours) + "</p></div></div></nav>" +
       "</header>"
     );
   }
@@ -199,7 +205,10 @@
   }
 
   function renderStickyBar() {
-    return '<div class="sticky-cta" id="sticky-cta">' + bookLink("btn--lg btn--block") + "</div>";
+    var note = C.cta.stickyTitle
+      ? '<p class="sticky-cta__note"><strong>' + esc(C.cta.stickyTitle) + "</strong><span>" + esc(C.cta.stickySub || "") + "</span></p>"
+      : "";
+    return '<div class="sticky-cta' + (note ? " sticky-cta--note" : "") + '" id="sticky-cta">' + note + bookLink("btn--lg" + (note ? "" : " btn--block")) + "</div>";
   }
 
   /* Short photo header used by every page except Home */
@@ -882,6 +891,7 @@
     if (!toggle || !panel) return;
     function set(open) {
       panel.hidden = !open;
+      document.documentElement.classList.toggle("menu-open", open);
       toggle.setAttribute("aria-expanded", open ? "true" : "false");
       toggle.innerHTML = icon(open ? "x" : "list");
     }
@@ -956,8 +966,15 @@
         /* Drop the helper classes once settled, so hover and press transitions are not delayed */
         setTimeout(function () { el.classList.remove("rv", "is-in"); el.style.transitionDelay = ""; }, delay + 800);
       });
-    }, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
+    }, { threshold: 0, rootMargin: "0px 0px -6% 0px" });
     $$(REVEAL).forEach(function (el) { el.classList.add("rv"); io.observe(el); });
+  }
+
+  /* On phones the plans are a swipe row: start with the featured plan in the middle */
+  function initPlans() {
+    var row = $(".plans"), f = $(".plan--featured");
+    if (!row || !f || row.scrollWidth <= row.clientWidth) return;
+    row.scrollLeft = f.offsetLeft - (row.clientWidth - f.offsetWidth) / 2;
   }
 
   function initHeroVideo() {
@@ -989,6 +1006,7 @@
     initHeroVideo();
     initMenu();
     initStepper();
+    initPlans();
     var booking = initBooking();
 
     document.addEventListener("click", function (e) {
