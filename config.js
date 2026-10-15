@@ -76,7 +76,7 @@ window.CONFIG = {
   hero: {
     headline: "First class is on us",   // max 2 lines, under 8 words
     subtext: "Try a full coached group class for free. No card needed, and every move is scaled to you.", // max 20 words
-    image: { src: "images/hero.jpg", alt: "Members mid-workout in the Ironline gym" },
+    image: { src: "images/hero.jpg", alt: "Members squatting with barbells in a group class" },
     // DEMO DATA: believable, slightly uneven numbers. Replace with the gym's real figures.
     rating: { score: "4.9", count: "187", source: "Google reviews" },
     members: { count: "240+", label: "members" },
@@ -93,9 +93,9 @@ window.CONFIG = {
     },
     {
       quote: "The coaches know my name and my bad shoulder. Best hour of my day.",
-      name: "Priya Nair",
+      name: "Katie Moore",
       tenure: "Training here for 8 months",
-      image: { src: "images/member-2.jpg", alt: "Priya Nair, member" },
+      image: { src: "images/member-2.jpg", alt: "Katie Moore, member" },
     },
     {
       quote: "I came for the free class and stayed because the room pushes you without the ego.",
@@ -113,22 +113,22 @@ window.CONFIG = {
       {
         label: "Arrive 10 minutes early",
         text: "A coach meets you at the door, checks you in, and shows you where everything is.",
-        image: { src: "images/first-class-1.jpg", alt: "A coach welcoming a new member at the front desk" },
+        image: { src: "images/first-class-1.jpg", alt: "A coach and a member talking by the gym door" },
       },
       {
         label: "Wear gym clothes and trainers",
         text: "Shorts or leggings, a tee, and flat shoes. Bring water and we will handle the rest.",
-        image: { src: "images/first-class-2.jpg", alt: "Members in everyday training clothes tying their shoes" },
+        image: { src: "images/first-class-2.jpg", alt: "Trainers on a plyo box in the gym" },
       },
       {
         label: "A warm-up anyone can do",
         text: "Easy movement led by your coach to get loose. No experience needed.",
-        image: { src: "images/first-class-3.jpg", alt: "The class warming up together on the floor" },
+        image: { src: "images/first-class-3.jpg", alt: "The class warming up together with light weights" },
       },
       {
         label: "A workout scaled to you",
         text: "Every movement is adjusted to your level, so nobody gets thrown in the deep end.",
-        image: { src: "images/first-class-4.jpg", alt: "A coach adjusting a new member's barbell setup" },
+        image: { src: "images/first-class-4.jpg", alt: "A coach helping a member set up at the barbell" },
       },
     ],
   },
@@ -163,13 +163,13 @@ window.CONFIG = {
         name: "Dani Reyes",
         focus: "Barbell strength",
         line: "Teaches the squat, press and deadlift to first-timers and competitive lifters alike.",
-        image: { src: "images/coach-1.jpg", alt: "Coach Dani Reyes holding a barbell" },
+        image: { src: "images/coach-1.jpg", alt: "Coach Dani Reyes standing in the gym" },
       },
       {
         name: "Cal Brennan",
         focus: "Conditioning and mobility",
         line: "Builds the engine classes, and keeps new members moving well and injury free.",
-        image: { src: "images/coach-2.jpg", alt: "Coach Cal Brennan coaching a class" },
+        image: { src: "images/coach-2.jpg", alt: "Coach Cal Brennan in a coach shirt" },
       },
     ],
   },
@@ -195,7 +195,7 @@ window.CONFIG = {
   finalCta: {
     title: "Come train with us",
     text: "One free class. No card. Pick a time and we will see you there.",
-    image: { src: "images/gym-wide.jpg", alt: "The Ironline gym floor ready for class" },
+    image: { src: "images/gym-wide.jpg", alt: "The gym floor with racks and open space" },
   },
 
   /* ---- Footer ----------------------------------------------------------- */
