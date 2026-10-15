@@ -95,8 +95,11 @@
   }
   function wireImages(root) {
     $$("img[data-kind]", root).forEach(function (img) {
+      img.addEventListener("load", function () { img.classList.add("is-loaded"); });
       img.addEventListener("error", function () { markMissing(img); });
-      if (img.complete && img.naturalWidth === 0) markMissing(img);
+      if (img.complete) {
+        if (img.naturalWidth === 0) markMissing(img); else img.classList.add("is-loaded");
+      }
     });
   }
 
@@ -365,7 +368,7 @@
       );
     }).join("");
     return (
-      '<section class="section" id="first-class" data-reveal aria-labelledby="fc-title"><div class="container">' +
+      '<section class="section" id="first-class" aria-labelledby="fc-title"><div class="container">' +
         '<div class="section-head"><h2 class="display" id="fc-title">' + esc(fc.title) + "</h2>" +
         (fc.intro ? "<p>" + esc(fc.intro) + "</p>" : "") + "</div>" +
         '<div class="stepper">' +
@@ -432,7 +435,7 @@
       );
     }).join("");
     return (
-      '<section class="section" id="coaches" data-reveal aria-labelledby="coaches-title"><div class="container">' +
+      '<section class="section" id="coaches" aria-labelledby="coaches-title"><div class="container">' +
         '<div class="section-head"><h2 class="display" id="coaches-title">' + esc(co.title) + "</h2></div>" +
         '<div class="coaches__grid">' + items + "</div>" +
         '<div class="section-more">' + moreLink(navHref("coaches"), co.moreLabel) + "</div>" +
@@ -474,7 +477,7 @@
   function renderLocationHome() {
     var L = C.location;
     return (
-      '<section class="section section--surface location" id="location" data-reveal aria-labelledby="loc-title"><div class="container location__grid">' +
+      '<section class="section section--surface location" id="location" aria-labelledby="loc-title"><div class="container location__grid">' +
         "<div>" +
           '<h2 class="display" id="loc-title">' + esc(L.title) + "</h2>" +
           renderAddress() + directionsLink() + renderFacts() +
@@ -526,7 +529,7 @@
       );
     }).join("");
     return (
-      '<section class="section section--surface" data-reveal aria-labelledby="bring-title"><div class="container bring">' +
+      '<section class="section section--surface" aria-labelledby="bring-title"><div class="container bring">' +
         '<div class="bring__copy"><div class="section-head"><h2 class="display" id="bring-title">' + esc(b.title) + "</h2>" +
           "<p>" + esc(b.intro) + "</p></div><ul class=\"bring__list\">" + items + "</ul></div>" +
         media(b.image, "step", { cls: "bring__photo" }) +
@@ -553,7 +556,7 @@
         "</article>"
       );
     }).join("");
-    return '<section class="section" data-reveal aria-label="Coaches"><div class="container profiles">' + items + "</div></section>";
+    return '<section class="section" aria-label="Coaches"><div class="container profiles">' + items + "</div></section>";
   }
 
   /* ---------- MEMBERSHIPS page ---------- */
@@ -580,7 +583,7 @@
         '<div class="section-head"><h2 class="display" id="plans-title">' + esc(M.plansTitle) + "</h2></div>" +
         '<div class="plans">' + plans + "</div>" +
       "</div></section>" +
-      '<section class="section section--surface" data-reveal aria-labelledby="inc-title"><div class="container">' +
+      '<section class="section section--surface" aria-labelledby="inc-title"><div class="container">' +
         '<div class="section-head"><h2 class="display" id="inc-title">' + esc(M.includedTitle) + "</h2></div>" +
         '<ul class="included">' + inc + "</ul>" +
       "</div></section>"
@@ -601,7 +604,7 @@
         "</div>" +
         renderMap() +
       "</div></section>" +
-      '<section class="section section--surface" data-reveal aria-labelledby="door-title"><div class="container door">' +
+      '<section class="section section--surface" aria-labelledby="door-title"><div class="container door">' +
         media(L.entranceImage, "step", { cls: "door__photo" }) +
         '<div class="door__copy"><h2 class="display" id="door-title">' + esc(L.entranceTitle) + "</h2><p>" + esc(L.entranceText) + "</p></div>" +
       "</div></section>" +
@@ -933,14 +936,28 @@
     if (PAGE !== "home") watch("#book", "card"); // on Home the card is part of the hero
   }
 
+  /* Scroll reveal: every item rises in as it enters view; items arriving together are staggered. */
+  var REVEAL = [
+    ".proof .quote", ".section-head", ".stepper__stage", ".stepper__item", ".board .slot-btn", ".day-card", ".day-row",
+    ".duration-note", ".coach", ".profile__photo", ".profile__body", ".plan", ".included__item", ".type", ".faq",
+    ".fact", ".bring__item", ".bring__photo", ".door__photo", ".door__copy", ".contact > div", ".map", ".address",
+    ".location__grid .btn", ".final .container > *", ".footer__grid > *", ".section-more"
+  ].join(",");
   function initReveal() {
     if (reduceMotion || !("IntersectionObserver" in window)) return;
     var io = new IntersectionObserver(function (entries) {
+      var n = 0;
       entries.forEach(function (en) {
-        if (en.isIntersecting) { en.target.classList.add("is-in"); io.unobserve(en.target); }
+        if (!en.isIntersecting) return;
+        var el = en.target, delay = Math.min(n++ * 70, 490);
+        el.style.transitionDelay = delay + "ms";
+        el.classList.add("is-in");
+        io.unobserve(el);
+        /* Drop the helper classes once settled, so hover and press transitions are not delayed */
+        setTimeout(function () { el.classList.remove("rv", "is-in"); el.style.transitionDelay = ""; }, delay + 800);
       });
-    }, { threshold: 0.06, rootMargin: "0px 0px -8% 0px" });
-    $$("[data-reveal]").forEach(function (el) { el.classList.add("reveal"); io.observe(el); });
+    }, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
+    $$(REVEAL).forEach(function (el) { el.classList.add("rv"); io.observe(el); });
   }
 
   function initHeroVideo() {
